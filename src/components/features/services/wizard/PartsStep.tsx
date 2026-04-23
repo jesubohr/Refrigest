@@ -66,6 +66,14 @@ export function PartsStep() {
       return
     }
 
+    // Soft stock validation — warn but allow (tech may pull from elsewhere)
+    const overStock = parts.filter((sp) => sp.qty > (stockMap.get(sp.part_id) ?? 0))
+    if (overStock.length > 0) {
+      toast.warning(`Stock insuficiente para ${overStock.length} parte(s). Se registrará igual.`, {
+        duration: 4000,
+      })
+    }
+
     try {
       const now = new Date().toISOString()
 

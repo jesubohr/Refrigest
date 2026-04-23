@@ -10,9 +10,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { enqueue } from '@/lib/sync/outbox'
 import { generateWarrantyNumber } from '@/core/business/warrantyNumber'
 import { computeInventoryDelta } from '@/core/business/inventoryDelta'
+import { computeReminderDueDate } from '@/core/business/reminderDueDate'
 import { useServiceDraft } from '@/hooks/useServiceDraft'
+import { ReportActions } from './ReportActions'
 import { toast } from 'sonner'
-import { useRouter } from 'next/navigation'
 import { v4 as uuid } from 'uuid'
 
 interface Props {
@@ -20,7 +21,6 @@ interface Props {
 }
 
 export function FinalizeService({ serviceId }: Props) {
-  const router = useRouter()
   const { parts, reset } = useServiceDraft()
   const [finalizing, setFinalizing] = useState(false)
   const [finalized, setFinalized] = useState(false)
@@ -130,12 +130,56 @@ export function FinalizeService({ serviceId }: Props) {
             await db.equipment.update(service.equipment_id, { tags, updated_at: now })
           }
         }
+
+        // Warranty-expiry reminder (7 days before expiry)
+        const warrantyReminderId = uuid()
+        const warrantyReminderDue = computeReminderDueDate('warranty_expiry', expiresAt)
+        await db.reminders.put({
+          id: warrantyReminderId,
+          equipment_id: service!.equipment_id,
+          tech_id: '',
+          kind: 'warranty_expiry',
+          due_at: warrantyReminderDue.toISOString(),
+          delivered_at: null,
+          created_at: now,
+          updated_at: now,
+          sync_version: 0,
+        })
+        await enqueue('reminders', 'insert', warrantyReminderId, {
+          id: warrantyReminderId,
+          equipment_id: service!.equipment_id,
+          kind: 'warranty_expiry',
+          due_at: warrantyReminderDue.toISOString(),
+        })
+      }
+
+      // 5. Preventive maintenance reminder (6 months from now)
+      if (service) {
+        const preventiveReminderId = uuid()
+        const preventiveDue = computeReminderDueDate('preventive_6mo', new Date(now))
+        await db.reminders.put({
+          id: preventiveReminderId,
+          equipment_id: service.equipment_id,
+          tech_id: '',
+          kind: 'preventive_6mo',
+          due_at: preventiveDue.toISOString(),
+          delivered_at: null,
+          created_at: now,
+          updated_at: now,
+          sync_version: 0,
+        })
+        await enqueue('reminders', 'insert', preventiveReminderId, {
+          id: preventiveReminderId,
+          equipment_id: service.equipment_id,
+          kind: 'preventive_6mo',
+          due_at: preventiveDue.toISOString(),
+        })
       }
 
       setFinalized(true)
       reset()
       toast.success('Servicio finalizado')
-      router.push(`/today`)
+      // Stay on finalize page so tech can download PDFs
     } catch (err) {
       toast.error('Error al finalizar el servicio')
       console.error(err)
@@ -148,12 +192,15 @@ export function FinalizeService({ serviceId }: Props) {
 
   if (finalized) {
     return (
-      <div className="flex flex-col items-center gap-4 py-16 text-center">
-        <CheckCircle className="size-12 text-green-500" aria-hidden />
-        <p className="text-balance text-lg font-semibold">Servicio finalizado</p>
-        <p className="text-pretty text-sm text-muted-foreground">
-          El reporte fue creado y se sincronizará cuando haya conexión.
-        </p>
+      <div className="space-y-6">
+        <div className="flex flex-col items-center gap-3 py-8 text-center">
+          <CheckCircle className="size-12 text-green-500" aria-hidden />
+          <p className="text-balance text-lg font-semibold">Servicio finalizado</p>
+          <p className="text-pretty text-sm text-muted-foreground">
+            El reporte fue creado y se sincronizará cuando haya conexión.
+          </p>
+        </div>
+        <ReportActions serviceId={serviceId} />
       </div>
     )
   }
