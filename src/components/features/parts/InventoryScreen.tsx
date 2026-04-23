@@ -3,13 +3,13 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/dexie/db'
-import { Package, Plus, Download } from 'lucide-react'
+import { Package, Plus, Minus, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
 import { NewPartDialog } from './NewPartDialog'
 import { exportInventoryCsv } from '@/lib/export'
+import { enqueue } from '@/lib/sync/outbox'
 import { toast } from 'sonner'
 
 export function InventoryScreen() {
@@ -32,6 +32,22 @@ export function InventoryScreen() {
       toast.success('CSV exportado')
     } catch {
       toast.error('No se pudo exportar')
+    }
+  }
+
+  async function adjustStock(partId: string, delta: number, currentQty: number) {
+    const newQty = Math.max(0, currentQty + delta)
+    const now = new Date().toISOString()
+    try {
+      const existing = await db.tech_inventory.get(partId)
+      if (existing) {
+        await db.tech_inventory.update(partId, { qty: newQty, updated_at: now })
+      } else {
+        await db.tech_inventory.put({ part_id: partId, tech_id: '', qty: newQty, updated_at: now, sync_version: 0 })
+      }
+      await enqueue('tech_inventory', 'update', partId, { part_id: partId, qty: newQty })
+    } catch {
+      toast.error('No se pudo actualizar el stock')
     }
   }
 
@@ -69,8 +85,27 @@ export function InventoryScreen() {
                       <p className="text-xs text-muted-foreground">{part.sku}</p>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="tabular text-sm font-semibold">{part.qty}</span>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="size-7"
+                      onClick={() => adjustStock(part.id, -1, part.qty)}
+                      disabled={part.qty === 0}
+                      aria-label="Quitar una unidad"
+                    >
+                      <Minus className="size-3" aria-hidden />
+                    </Button>
+                    <span className="w-8 text-center tabular text-sm font-semibold">{part.qty}</span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="size-7"
+                      onClick={() => adjustStock(part.id, +1, part.qty)}
+                      aria-label="Agregar una unidad"
+                    >
+                      <Plus className="size-3" aria-hidden />
+                    </Button>
                     <StockBadge qty={part.qty} />
                   </div>
                 </CardContent>

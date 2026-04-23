@@ -3,11 +3,12 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/dexie/db'
-import { MapPin, Plus } from 'lucide-react'
+import { MapPin, MessageCircle, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { BranchCard } from '../branches/BranchCard'
 import { NewBranchDialog } from '../branches/NewBranchDialog'
+import { openWhatsApp } from '@/lib/whatsapp'
 
 interface Props {
   wa: string
@@ -31,9 +32,25 @@ export function ClientDetail({ wa }: Props) {
         <CardHeader>
           <CardTitle className="text-balance text-base">{client.alias}</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          <p className="tabular">{client.whatsapp_e164}</p>
-          {client.legal_name && <p className="mt-1">{client.legal_name}</p>}
+        <CardContent className="space-y-3 text-sm">
+          <div>
+            <p className="tabular text-muted-foreground">{client.whatsapp_e164}</p>
+            {client.legal_name && <p className="mt-1 text-muted-foreground">{client.legal_name}</p>}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="touch-target"
+            onClick={() =>
+              openWhatsApp({
+                phoneE164: client.whatsapp_e164,
+                message: `Hola ${client.alias},`,
+              })
+            }
+          >
+            <MessageCircle className="mr-1.5 size-3.5" aria-hidden />
+            Abrir en WhatsApp
+          </Button>
         </CardContent>
       </Card>
 
