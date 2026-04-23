@@ -3,10 +3,13 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/dexie/db'
-import { ShieldCheck, ShieldAlert } from 'lucide-react'
+import { ShieldCheck, ShieldAlert, AlertTriangle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ClaimList } from '../claims/ClaimList'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -74,39 +77,62 @@ function WarrantyCard({
   warranty: { id: string; duration_days: number; coverage: string; starts_at: string; expires_at: string }
   isExpiringSoon?: boolean
 }) {
+  const [claimsOpen, setClaimsOpen] = useState(false)
   const coverageLabel = warranty.coverage === 'full' ? 'Total' : 'Mano de Obra'
 
   return (
-    <Card>
-      <CardContent className="flex items-center gap-3 py-3">
-        <div
-          className={`flex size-9 items-center justify-center rounded-full ${
-            isExpiringSoon ? 'bg-destructive/10 text-destructive' : 'bg-green-500/10 text-green-600'
-          }`}
-        >
-          {isExpiringSoon ? (
-            <ShieldAlert className="size-4" aria-hidden />
-          ) : (
-            <ShieldCheck className="size-4" aria-hidden />
-          )}
-        </div>
+    <>
+      <Card>
+        <CardContent className="flex items-center gap-3 py-3">
+          <div
+            className={`flex size-9 shrink-0 items-center justify-center rounded-full ${
+              isExpiringSoon ? 'bg-destructive/10 text-destructive' : 'bg-green-500/10 text-green-600'
+            }`}
+          >
+            {isExpiringSoon ? (
+              <ShieldAlert className="size-4" aria-hidden />
+            ) : (
+              <ShieldCheck className="size-4" aria-hidden />
+            )}
+          </div>
 
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium">
-            {warranty.duration_days} días — {coverageLabel}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Vence: {format(new Date(warranty.expires_at), "d MMM yyyy", { locale: es })}
-          </p>
-        </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium">
+              {warranty.duration_days} días — {coverageLabel}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Vence: {format(new Date(warranty.expires_at), "d MMM yyyy", { locale: es })}
+            </p>
+          </div>
 
-        {isExpiringSoon && (
-          <Badge variant="destructive" className="shrink-0 text-xs">
-            Próximo a vencer
-          </Badge>
-        )}
-      </CardContent>
-    </Card>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {isExpiringSoon && (
+              <Badge variant="destructive" className="text-xs">
+                Próximo a vencer
+              </Badge>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8"
+              onClick={() => setClaimsOpen(true)}
+              aria-label="Ver reclamos de esta garantía"
+            >
+              <AlertTriangle className="size-4" aria-hidden />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={claimsOpen} onOpenChange={setClaimsOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reclamos de Garantía</DialogTitle>
+          </DialogHeader>
+          <ClaimList warrantyId={warranty.id} />
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 
