@@ -139,15 +139,19 @@ export const parts = pgTable('parts', {
   sync_version: integer('sync_version').default(0).notNull(),
 })
 
-export const techInventory = pgTable('tech_inventory', {
-  tech_id: uuid('tech_id').notNull(),
-  part_id: uuid('part_id')
-    .notNull()
-    .references(() => parts.id, { onDelete: 'cascade' }),
-  qty: integer('qty').default(0).notNull(),
-  updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  sync_version: integer('sync_version').default(0).notNull(),
-})
+export const techInventory = pgTable(
+  'tech_inventory',
+  {
+    tech_id: uuid('tech_id').notNull(),
+    part_id: uuid('part_id')
+      .notNull()
+      .references(() => parts.id, { onDelete: 'cascade' }),
+    qty: integer('qty').default(0).notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    sync_version: integer('sync_version').default(0).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.tech_id, t.part_id] })]
+)
 
 export const equipmentInventory = pgTable(
   'equipment_inventory',
