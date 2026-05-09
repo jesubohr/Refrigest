@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { toast } from 'sonner'
 
 const passwordSchema = z.object({
@@ -182,6 +183,16 @@ export default function LoginPage() {
               )}
             </TabsContent>
           </Tabs>
+
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            ¿No tenés cuenta?{' '}
+            <Link
+              href="/register"
+              className="text-primary underline-offset-4 hover:underline"
+            >
+              Crear cuenta
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </motion.div>

@@ -1,16 +1,18 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   CalendarClock,
   Users,
   ShieldCheck,
   Package,
+  LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SyncStatusBar } from './SyncStatusBar'
 import { ThemeToggle } from './ThemeToggle'
+import { createClient } from '@/lib/supabase/client'
 
 const navItems = [
   { href: '/today', label: 'Hoy', icon: CalendarClock },
@@ -50,6 +52,13 @@ function NavItem({
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
+  const supabase = createClient()
+
+  async function handleSignOut() {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
 
   return (
     <div className="flex h-dvh flex-col md:flex-row">
@@ -77,6 +86,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {item.label}
             </Link>
           ))}
+
+          <button
+            onClick={handleSignOut}
+            className="mt-auto flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors touch-target text-sidebar-foreground hover:bg-sidebar-accent/50"
+          >
+            <LogOut className="size-4" aria-hidden />
+            Salir
+          </button>
         </nav>
       </aside>
 
@@ -96,6 +113,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               active={pathname.startsWith(item.href)}
             />
           ))}
+          <button
+            onClick={handleSignOut}
+            className="flex flex-col items-center gap-0.5 px-3 py-2 text-xs font-medium transition-colors touch-target min-w-[56px] rounded-lg text-muted-foreground hover:text-foreground"
+          >
+            <LogOut className="size-5" aria-hidden />
+            <span>Salir</span>
+          </button>
         </nav>
       </div>
     </div>
