@@ -8,6 +8,13 @@
       "when": 1778215631870,
       "tag": "0000_late_ultimo",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778293208761,
+      "tag": "0001_lucky_thanos",
+      "breakpoints": true
     }
   ]
 }

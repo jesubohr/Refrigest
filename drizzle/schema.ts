@@ -12,7 +12,9 @@ import {
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
-import { relations } from 'drizzle-orm'
+import { pgPolicy } from 'drizzle-orm/pg-core/policies'
+import { relations, sql } from 'drizzle-orm'
+import { authenticatedRole, authUid } from 'drizzle-orm/supabase'
 
 // --- Enums ---
 
@@ -37,16 +39,28 @@ export const reminderKindEnum = pgEnum('reminder_kind', [
 /**
  * clients — WhatsApp E.164 number is the PK (no signup).
  */
-export const clients = pgTable('clients', {
-  whatsapp_e164: text('whatsapp_e164').primaryKey(),
-  tech_id: uuid('tech_id').notNull(),
-  alias: text('alias').notNull(),
-  legal_name: text('legal_name'),
-  created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  deleted_at: timestamp('deleted_at', { withTimezone: true }),
-  sync_version: integer('sync_version').default(0).notNull(),
-})
+export const clients = pgTable(
+  'clients',
+  {
+    whatsapp_e164: text('whatsapp_e164').primaryKey(),
+    tech_id: uuid('tech_id').notNull(),
+    alias: text('alias').notNull(),
+    legal_name: text('legal_name'),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    deleted_at: timestamp('deleted_at', { withTimezone: true }),
+    sync_version: integer('sync_version').default(0).notNull(),
+  },
+  (t) => [
+    pgPolicy('clients_tech_isolation', {
+      as: 'permissive',
+      for: 'all',
+      to: authenticatedRole,
+      using: sql`${t.tech_id} = ${authUid}`,
+      withCheck: sql`${t.tech_id} = ${authUid}`,
+    }),
+  ]
+).enableRLS()
 
 export const branches = pgTable(
   'branches',
@@ -65,8 +79,17 @@ export const branches = pgTable(
     deleted_at: timestamp('deleted_at', { withTimezone: true }),
     sync_version: integer('sync_version').default(0).notNull(),
   },
-  (t) => [index('branches_client_wa_idx').on(t.client_wa)]
-)
+  (t) => [
+    index('branches_client_wa_idx').on(t.client_wa),
+    pgPolicy('branches_tech_isolation', {
+      as: 'permissive',
+      for: 'all',
+      to: authenticatedRole,
+      using: sql`${t.tech_id} = ${authUid}`,
+      withCheck: sql`${t.tech_id} = ${authUid}`,
+    }),
+  ]
+).enableRLS()
 
 export const equipment = pgTable(
   'equipment',
@@ -87,8 +110,17 @@ export const equipment = pgTable(
     deleted_at: timestamp('deleted_at', { withTimezone: true }),
     sync_version: integer('sync_version').default(0).notNull(),
   },
-  (t) => [index('equipment_branch_id_idx').on(t.branch_id)]
-)
+  (t) => [
+    index('equipment_branch_id_idx').on(t.branch_id),
+    pgPolicy('equipment_tech_isolation', {
+      as: 'permissive',
+      for: 'all',
+      to: authenticatedRole,
+      using: sql`${t.tech_id} = ${authUid}`,
+      withCheck: sql`${t.tech_id} = ${authUid}`,
+    }),
+  ]
+).enableRLS()
 
 export const services = pgTable(
   'services',
@@ -110,8 +142,17 @@ export const services = pgTable(
     deleted_at: timestamp('deleted_at', { withTimezone: true }),
     sync_version: integer('sync_version').default(0).notNull(),
   },
-  (t) => [index('services_equipment_id_idx').on(t.equipment_id)]
-)
+  (t) => [
+    index('services_equipment_id_idx').on(t.equipment_id),
+    pgPolicy('services_tech_isolation', {
+      as: 'permissive',
+      for: 'all',
+      to: authenticatedRole,
+      using: sql`${t.tech_id} = ${authUid}`,
+      withCheck: sql`${t.tech_id} = ${authUid}`,
+    }),
+  ]
+).enableRLS()
 
 export const serviceMedia = pgTable(
   'service_media',
@@ -125,19 +166,40 @@ export const serviceMedia = pgTable(
     thumb_url: text('thumb_url'),
     pending_upload: boolean('pending_upload').default(true).notNull(),
   },
-  (t) => [index('service_media_service_id_idx').on(t.service_id)]
-)
+  (t) => [
+    index('service_media_service_id_idx').on(t.service_id),
+    pgPolicy('service_media_tech_isolation', {
+      as: 'permissive',
+      for: 'all',
+      to: authenticatedRole,
+      using: sql`EXISTS (SELECT 1 FROM services WHERE services.id = ${t.service_id} AND services.tech_id = ${authUid})`,
+      withCheck: sql`EXISTS (SELECT 1 FROM services WHERE services.id = ${t.service_id} AND services.tech_id = ${authUid})`,
+    }),
+  ]
+).enableRLS()
 
-export const parts = pgTable('parts', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  tech_id: uuid('tech_id').notNull(),
-  name: text('name').notNull(),
-  sku: text('sku'),
-  created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  deleted_at: timestamp('deleted_at', { withTimezone: true }),
-  sync_version: integer('sync_version').default(0).notNull(),
-})
+export const parts = pgTable(
+  'parts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tech_id: uuid('tech_id').notNull(),
+    name: text('name').notNull(),
+    sku: text('sku'),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    deleted_at: timestamp('deleted_at', { withTimezone: true }),
+    sync_version: integer('sync_version').default(0).notNull(),
+  },
+  (t) => [
+    pgPolicy('parts_tech_isolation', {
+      as: 'permissive',
+      for: 'all',
+      to: authenticatedRole,
+      using: sql`${t.tech_id} = ${authUid}`,
+      withCheck: sql`${t.tech_id} = ${authUid}`,
+    }),
+  ]
+).enableRLS()
 
 export const techInventory = pgTable(
   'tech_inventory',
@@ -150,8 +212,17 @@ export const techInventory = pgTable(
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
     sync_version: integer('sync_version').default(0).notNull(),
   },
-  (t) => [primaryKey({ columns: [t.tech_id, t.part_id] })]
-)
+  (t) => [
+    primaryKey({ columns: [t.tech_id, t.part_id] }),
+    pgPolicy('tech_inventory_tech_isolation', {
+      as: 'permissive',
+      for: 'all',
+      to: authenticatedRole,
+      using: sql`${t.tech_id} = ${authUid}`,
+      withCheck: sql`${t.tech_id} = ${authUid}`,
+    }),
+  ]
+).enableRLS()
 
 export const equipmentInventory = pgTable(
   'equipment_inventory',
@@ -166,8 +237,17 @@ export const equipmentInventory = pgTable(
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
     sync_version: integer('sync_version').default(0).notNull(),
   },
-  (t) => [primaryKey({ columns: [t.equipment_id, t.part_id] })]
-)
+  (t) => [
+    primaryKey({ columns: [t.equipment_id, t.part_id] }),
+    pgPolicy('equipment_inventory_tech_isolation', {
+      as: 'permissive',
+      for: 'all',
+      to: authenticatedRole,
+      using: sql`EXISTS (SELECT 1 FROM equipment WHERE equipment.id = ${t.equipment_id} AND equipment.tech_id = ${authUid})`,
+      withCheck: sql`EXISTS (SELECT 1 FROM equipment WHERE equipment.id = ${t.equipment_id} AND equipment.tech_id = ${authUid})`,
+    }),
+  ]
+).enableRLS()
 
 export const serviceParts = pgTable(
   'service_parts',
@@ -180,8 +260,17 @@ export const serviceParts = pgTable(
       .references(() => parts.id, { onDelete: 'cascade' }),
     qty: integer('qty').notNull(),
   },
-  (t) => [primaryKey({ columns: [t.service_id, t.part_id] })]
-)
+  (t) => [
+    primaryKey({ columns: [t.service_id, t.part_id] }),
+    pgPolicy('service_parts_tech_isolation', {
+      as: 'permissive',
+      for: 'all',
+      to: authenticatedRole,
+      using: sql`EXISTS (SELECT 1 FROM services WHERE services.id = ${t.service_id} AND services.tech_id = ${authUid})`,
+      withCheck: sql`EXISTS (SELECT 1 FROM services WHERE services.id = ${t.service_id} AND services.tech_id = ${authUid})`,
+    }),
+  ]
+).enableRLS()
 
 export const reports = pgTable(
   'reports',
@@ -199,8 +288,17 @@ export const reports = pgTable(
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
     sync_version: integer('sync_version').default(0).notNull(),
   },
-  (t) => [uniqueIndex('reports_unique_number_idx').on(t.unique_number)]
-)
+  (t) => [
+    uniqueIndex('reports_unique_number_idx').on(t.unique_number),
+    pgPolicy('reports_tech_isolation', {
+      as: 'permissive',
+      for: 'all',
+      to: authenticatedRole,
+      using: sql`${t.tech_id} = ${authUid}`,
+      withCheck: sql`${t.tech_id} = ${authUid}`,
+    }),
+  ]
+).enableRLS()
 
 export const warranties = pgTable(
   'warranties',
@@ -218,21 +316,42 @@ export const warranties = pgTable(
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
     sync_version: integer('sync_version').default(0).notNull(),
   },
-  (t) => [index('warranties_expires_at_idx').on(t.expires_at)]
-)
+  (t) => [
+    index('warranties_expires_at_idx').on(t.expires_at),
+    pgPolicy('warranties_tech_isolation', {
+      as: 'permissive',
+      for: 'all',
+      to: authenticatedRole,
+      using: sql`${t.tech_id} = ${authUid}`,
+      withCheck: sql`${t.tech_id} = ${authUid}`,
+    }),
+  ]
+).enableRLS()
 
-export const claims = pgTable('claims', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  warranty_id: uuid('warranty_id')
-    .notNull()
-    .references(() => warranties.id, { onDelete: 'cascade' }),
-  tech_id: uuid('tech_id').notNull(),
-  date: timestamp('date', { withTimezone: true }).notNull(),
-  notes: text('notes'),
-  created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  sync_version: integer('sync_version').default(0).notNull(),
-})
+export const claims = pgTable(
+  'claims',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    warranty_id: uuid('warranty_id')
+      .notNull()
+      .references(() => warranties.id, { onDelete: 'cascade' }),
+    tech_id: uuid('tech_id').notNull(),
+    date: timestamp('date', { withTimezone: true }).notNull(),
+    notes: text('notes'),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    sync_version: integer('sync_version').default(0).notNull(),
+  },
+  (t) => [
+    pgPolicy('claims_tech_isolation', {
+      as: 'permissive',
+      for: 'all',
+      to: authenticatedRole,
+      using: sql`${t.tech_id} = ${authUid}`,
+      withCheck: sql`${t.tech_id} = ${authUid}`,
+    }),
+  ]
+).enableRLS()
 
 export const reminders = pgTable(
   'reminders',
@@ -249,8 +368,17 @@ export const reminders = pgTable(
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
     sync_version: integer('sync_version').default(0).notNull(),
   },
-  (t) => [index('reminders_due_at_idx').on(t.due_at)]
-)
+  (t) => [
+    index('reminders_due_at_idx').on(t.due_at),
+    pgPolicy('reminders_tech_isolation', {
+      as: 'permissive',
+      for: 'all',
+      to: authenticatedRole,
+      using: sql`${t.tech_id} = ${authUid}`,
+      withCheck: sql`${t.tech_id} = ${authUid}`,
+    }),
+  ]
+).enableRLS()
 
 // --- Relations ---
 
